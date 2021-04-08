@@ -1,0 +1,279 @@
+import pandas as pd
+from matplotlib import pyplot as plt
+import numpy as np
+import seaborn as sns
+from matplotlib.ticker import FuncFormatter
+path = "C:/Users/richw/Documents/GB 736 Data Visualization/Python/"
+filename = path + 'openpowerlifting.csv'
+df = pd.read_csv (filename)
+df['Date'] = pd.to_datetime(df['Date'], format = '%Y/%m/%d')
+df['count']= '1'
+
+wc =df.groupby(['WeightClassKg']).agg({'WeightClassKg':['count']}).reset_index()
+wc.columns =(['Weightclass','Count'])
+wc= wc.sort_values('Count', ascending = False).reset_index()
+wc.drop(wc.index[10:225], inplace = True)
+
+plt.figure(figsize=(18,10))#Bar chart
+
+
+plt.bar(wc.Weightclass,wc.Count, color = "Teal")
+plt.xlabel("Weightclass")
+plt.ylabel("Total lifters in each weightclass")
+plt.title ("Top 10 Weightclasses")
+
+plt.show() #these are the top ten weight classes so we will focus on these classes for the rest of the visualization
+
+import folium
+ml = df.copy()
+ml = ml.groupby(['Country']).agg({'Country':['count'], 'TotalKg':['sum','mean']}).reset_index()
+ml.columns = (['Country', 'Count_of_Countries', 'Country_Total_kg','Mean_total_kg' ])
+ml= ml.sort_values('Count_of_Countries', ascending = False).reset_index()
+ml.drop(ml.index[10:177], inplace = True) 
+mlc = {'Country':['USA','Russia','Ukraine','Finland','Australia','UK','Norway','Germany','Czechia','Canada'], 'Lat':[37.0902, 61.5240, 48.3794, 61.9241, -25.2744, 55.3781, 60.4720, 51.1657, 49.8175, 56.1304 ], 'Long':[-95.7129, 105.3188, 31.1656, 25.7482, 133.7751, -3.4360, 8.4689, 10.4515, 15.4730, -106.3468 ]}
+mlc = pd.DataFrame(data=mlc)
+pd.merge(mlc,ml, how = 'left', on= 'Country')
+mlmlc = pd.merge(mlc,ml, how = 'left', on= 'Country')
+
+title_html = '''
+             <h3 align="center" style="font-size:16px"><b>Strongest Countries by Mean Weight</b></h3>
+             '''
+
+m = folium.Map(location=[20,0], tiles = "OpenStreetMap", zoom_start=2)
+m = folium.Map(location=[20,0], tiles = "OpenStreetMap", zoom_start=2)
+for i in range (0,len(mlmlc)):
+    folium.Circle(
+        location = [mlmlc.iloc[i]['Lat'],mlmlc.iloc[i]['Long']],
+        popup= [mlmlc.iloc[i]['Country'],mlmlc.iloc[i]['Mean_total_kg'] ],
+        radius = (mlmlc.iloc[i]['Mean_total_kg'])*1000,
+        color = 'crimson',
+        fill = True,
+        fill_color= 'crimson',
+       titles = 'strongest country'
+    ).add_to(m)
+    
+  
+    
+    m.save(path+ 'strongest_country.html')
+    
+    
+    
+    
+dfdropnamedups = df.copy()
+dfdropnamedups.drop_duplicates(subset = ['Name'], inplace =True)
+sx = dfdropnamedups.groupby(['Sex']).agg({'Sex':['count']}).reset_index()
+sx.columns=['Sex','Count']
+colors = ["rosybrown", "lightblue"]
+fig1,ax1= plt.subplots(figsize=(16,9))
+ax1.pie(sx.Count,labels = sx.Sex, autopct = '%1.1f%%', colors = colors)
+plt.title ("Gender of the lifters")
+plt.show()
+
+
+tl = df.copy()
+tl['year']=tl['Date'].dt.year
+tl1=tl.groupby(['year',]).agg({'TotalKg':['max'],'IPFPoints':['max'] }).reset_index()
+tl1.columns = (['year',	'TotalKg',	'TotalPts'])
+
+plt.subplots(figsize=(20,12))
+
+plt.plot(tl1.year, tl1.TotalKg, color = 'darkslategrey', linewidth = 4, label = 'Total Kg' ) #top lifter every year
+plt.plot(tl1.year, tl1.TotalPts, color = 'maroon', linewidth = 3, linestyle = 'dashed' ,label = 'Total points')
+
+plt.xlabel ("Year", fontsize = 12)
+plt.ylabel ("Total weight lifted", fontsize = 12)
+plt.title ("Top lifters total lifted weight by year" ,fontsize = 16)
+
+plt.legend()
+
+plt.show()
+
+
+
+dx = df.copy() 
+dx = dx.groupby(['WeightClassKg']).agg({'Best3SquatKg':['mean'], 'Best3BenchKg':['mean'], 'Best3DeadliftKg':['mean']}).reset_index()
+dx.columns = (['WeightClassKg',	'MeanBestSquat',	'MeanBestBench',	'MeanBestDeadlift'])
+a = ['90','75','100','82.5','110','67.5','125','93','83','56'] #Top 10 weightclasses
+dx=dx[dx['WeightClassKg'].isin(a)]
+
+x = np.arange(len(dx.WeightClassKg))
+
+fig  = plt.figure(figsize = (18,10))
+ax = fig.add_subplot (1,1,1)
+width = .4
+
+
+x_pos =np.arange (10)
+
+MeanBestBenchBar= ax.bar(x-.25,dx.MeanBestBench,width, color = 'Green')
+MeanBestSquatBar= ax.bar(x,dx.MeanBestSquat,width, color = 'Blue')
+MeanBestDeadliftBar= ax.bar(x+.25,dx.MeanBestDeadlift,width, color = 'Red')
+
+plt.xlabel("Weight Class", fontsize = 12) 
+plt.ylabel("Weight in KG", fontsize = 12)
+
+ax.set_xticks(x_pos)
+ax.set_xticklabels(dx.WeightClassKg)
+
+plt.title("Top 10 common weight class avg best lift", fontsize=20)
+
+plt.legend(['Mean Best Bench','Mean Best Squat', 'Mean best Deadlift'])
+plt.show()
+
+top4 = ['1','2','3','4']
+df['sumbestlifts'] = df['Best3DeadliftKg']+ df['Best3SquatKg']+df['Best3BenchKg']
+pw=df.copy()
+
+pw = pw.groupby(['Place', 'WeightClassKg']).agg({'Place':['count'],'sumbestlifts':['mean']}).reset_index()
+pw=pw[pw['WeightClassKg'].isin(a)]
+pw.columns = (['Place', 'Weightclass','count','meanbestlifts'])
+pw.dropna(inplace=True)
+pw=pw[pw['Place'].isin(top4)]
+pw.round({'meanbestlifts':2})
+
+pw['meanbestlifts']= pw ['meanbestlifts'].astype('int')
+pw['Place']= pw ['Place'].astype('int')
+pw['count_14ths'] = round(pw['count']/14,0)
+
+plt.figure(figsize = (18,10))
+plt.scatter(pw['Weightclass'], pw['Place'], marker = '8', cmap = 'twilight_shifted',
+           s=pw['count_14ths'], c=pw['meanbestlifts'], edgecolors ='black')
+
+plt.title ('Correlation between place and best lifts', fontsize = 20)
+plt.xlabel ('Weight Class', fontsize =12)
+plt.ylabel ('Place', fontsize = 12)
+
+sbar = plt.colorbar()
+sbar.set_label('Mean best weight lifted', rotation = 270)
+
+my_y_ticks = [*range(pw['Place'].min(), pw['Place'].max()+1),1]
+plt.yticks(my_y_ticks, fontsize =12, color = 'black')
+
+plt.show()
+
+wx= df.copy()
+wx.loc[wx['Best3SquatKg']>=50, 'Squat_Cat']= '>=50'
+wx.loc[wx['Best3SquatKg']>=100, 'Squat_Cat']= '>=100'
+wx.loc[wx['Best3SquatKg']>=150, 'Squat_Cat']= '>=150'
+wx.loc[wx['Best3SquatKg']>=200, 'Squat_Cat']= '>=200'
+wx.loc[wx['Best3SquatKg']>=250, 'Squat_Cat']= '>=250'
+wx.loc[wx['Best3SquatKg']>=300, 'Squat_Cat']= '>=300'
+wx.loc[wx['Best3SquatKg']>=350, 'Squat_Cat']= '>=350'
+wx.loc[wx['Best3SquatKg']>=400, 'Squat_Cat']= '>=400'
+wx.loc[wx['Best3SquatKg']>=450, 'Squat_Cat']= '>=450'
+wx.loc[wx['Best3SquatKg']>=500, 'Squat_Cat']= '>=500'
+wx = wx.groupby(['WeightClassKg','Squat_Cat']).agg({'Squat_Cat':['count']}).reset_index()
+wx=wx[wx['WeightClassKg'].isin(a)]
+wx.columns=(['WeightClass', 'Squat_Cat','Count'])
+wx_pivot = pd.pivot_table(wx, index = 'Squat_Cat', columns = 'WeightClass', values = 'Count')
+wx_pivot.fillna(0,inplace= True)
+
+fig = plt.figure(figsize = (18,10))
+ax=fig.add_subplot(1,1,1)
+
+comma_fmt = FuncFormatter(lambda x, p: format(int(x), ','))
+
+ax = sns.heatmap(
+wx_pivot, 
+linewidth = .2,
+annot = True,
+cmap = 'coolwarm',
+    fmt = ',.0f',
+    square = True,
+    annot_kws = {'size':11},
+    cbar_kws = {'format':comma_fmt}
+    
+)
+
+ax.set_title ('Weightclass # of Squats for each weight categry', fontsize = 20)
+
+
+plt.show()
+
+bx = df.copy()
+
+bx.loc[bx['Best3BenchKg']>=50, 'Bench_Cat']= '>=50'
+bx.loc[bx['Best3BenchKg']>=100, 'Bench_Cat']= '>=100'
+bx.loc[bx['Best3BenchKg']>=150, 'Bench_Cat']= '>=150'
+bx.loc[bx['Best3BenchKg']>=200, 'Bench_Cat']= '>=200'
+bx.loc[bx['Best3BenchKg']>=250, 'Bench_Cat']= '>=250'
+bx.loc[bx['Best3BenchKg']>=300, 'Bench_Cat']= '>=300'
+bx.loc[bx['Best3BenchKg']>=350, 'Bench_Cat']= '>=350'
+bx.loc[bx['Best3BenchKg']>=400, 'Bench_Cat']= '>=400'
+bx.loc[bx['Best3BenchKg']>=450, 'Bench_Cat']= '>=450'
+bx.loc[bx['Best3BenchKg']>=500, 'Bench_Cat']= '>=500'
+
+bx = bx.groupby(['WeightClassKg','Bench_Cat']).agg({'Bench_Cat':['count']}).reset_index()
+
+bx=bx[bx['WeightClassKg'].isin(a)]
+bx.columns=(['WeightClass', 'Bench_Cat','Count'])
+
+bx_pivot = pd.pivot_table(bx, index ='Bench_Cat' , columns = 'WeightClass', values = 'Count')
+bx_pivot.fillna(0,inplace= True)
+
+fig = plt.figure(figsize = (18,10))
+ax=fig.add_subplot(1,1,1)
+
+comma_fmt = FuncFormatter(lambda x, p: format(int(x), ','))
+
+ax = sns.heatmap(
+bx_pivot, 
+linewidth = .2,
+annot = True,
+cmap = 'coolwarm',
+    fmt = ',.0f',
+    square = True,
+    annot_kws = {'size':11},
+    cbar_kws = {'format':comma_fmt}
+    
+
+
+)
+ax.set_title ('Weightclass # of Bench for each weight categry', fontsize = 20)
+
+plt.show()
+
+dl = df.copy()
+dl.loc[dl['Best3DeadliftKg']>=50, 'Deadlift_Cat']= '>=50'
+dl.loc[dl['Best3DeadliftKg']>=100, 'Deadlift_Cat']= '>=100'
+dl.loc[dl['Best3DeadliftKg']>=150, 'Deadlift_Cat']= '>=150'
+dl.loc[dl['Best3DeadliftKg']>=200, 'Deadlift_Cat']= '>=200'
+dl.loc[dl['Best3DeadliftKg']>=250, 'Deadlift_Cat']= '>=250'
+dl.loc[dl['Best3DeadliftKg']>=300, 'Deadlift_Cat']= '>=300'
+dl.loc[dl['Best3DeadliftKg']>=350, 'Deadlift_Cat']= '>=350'
+dl.loc[dl['Best3DeadliftKg']>=400, 'Deadlift_Cat']= '>=400'
+dl.loc[dl['Best3DeadliftKg']>=450, 'Deadlift_Cat']= '>=450'
+dl.loc[dl['Best3DeadliftKg']>=500, 'Deadlift_Cat']= '>=500'
+
+dl = dl.groupby(['WeightClassKg','Deadlift_Cat']).agg({'Deadlift_Cat':['count']}).reset_index()
+
+dl=dl[dl['WeightClassKg'].isin(a)]
+dl.columns=(['WeightClass', 'Deadlift_Cat','Count'])
+
+dl_pivot = pd.pivot_table(dl, index = 'Deadlift_Cat', columns = 'WeightClass', values = 'Count')
+dl_pivot.fillna(0,inplace= True)
+
+fig = plt.figure(figsize = (18,10))
+ax=fig.add_subplot(1,1,1)
+
+comma_fmt = FuncFormatter(lambda x, p: format(int(x), ','))
+
+ax = sns.heatmap(
+dl_pivot, 
+linewidth = .2,
+annot = True,
+cmap = 'coolwarm',
+    fmt = ',.0f',
+    square = True,
+    annot_kws = {'size':11},
+    cbar_kws = {'format':comma_fmt}
+    
+
+
+)
+
+ax.set_title ('Weightclass # of Deadlift for each weight categry', fontsize = 20)
+plt.show()
+
+
+ 
